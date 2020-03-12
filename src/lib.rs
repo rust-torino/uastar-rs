@@ -29,6 +29,37 @@ pub struct path_finder {
     >,
     pub data: *mut libc::c_void,
 }
+
+impl PartialEq for path_finder {
+    fn eq(&self, other: &path_finder) -> bool {
+        self.cols.eq(&other.cols)
+            && self.rows.eq(&other.rows)
+            && self.start.eq(&other.start)
+            && self.end.eq(&other.end)
+            && self.has_path.eq(&other.has_path)
+            && self
+                .state
+                .iter()
+                .zip(other.state.iter())
+                .all(|(a, b)| a == b)
+            && self
+                .parents
+                .iter()
+                .zip(other.parents.iter())
+                .all(|(a, b)| a == b)
+            && self
+                .g_score
+                .iter()
+                .zip(other.g_score.iter())
+                .all(|(a, b)| a == b)
+            && self
+                .f_score
+                .iter()
+                .zip(other.f_score.iter())
+                .all(|(a, b)| a == b)
+    }
+}
+
 unsafe extern "C" fn path_finder_heuristic(
     path_finder: *mut path_finder,
     cell: int32_t,

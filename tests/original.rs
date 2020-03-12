@@ -1,6 +1,13 @@
 #![allow(non_camel_case_types, unused_mut, unused_variables, unused_assignments)]
 
 use libc;
+use std::{
+    error,
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+    ptr::null_mut,
+};
 use uastar::*;
 
 extern "C" {
@@ -41,6 +48,8 @@ unsafe extern "C" fn fill_cb(
     }
     return is_passable;
 }
+
+#[allow(dead_code)]
 unsafe extern "C" fn print_map(
     mut path_finder: *mut path_finder,
     mut print_open_and_closed: uint8_t,
@@ -152,7 +161,7 @@ unsafe fn find_path(
     e_row: libc::c_int,
     width: libc::c_int,
     height: libc::c_int,
-) -> libc::c_int {
+) -> path_finder {
     let mut path_finder: path_finder = path_finder {
         cols: 0,
         rows: 0,
@@ -203,18 +212,71 @@ unsafe fn find_path(
             while path_finder_find_step(&mut path_finder, 0 as *mut libc::c_void) as libc::c_int
                 == 1 as libc::c_int
             {
-                /* Print progress map */
-                print_map(&mut path_finder, 1 as libc::c_int as uint8_t);
                 usleep(25000 as libc::c_int as __useconds_t);
             }
         }
-        /* Print final map */
-        print_map(&mut path_finder, 0 as libc::c_int as uint8_t);
     }
-    return 0 as libc::c_int;
+
+    path_finder
+}
+
+fn from_file(path: &Path) -> Result<path_finder, Box<dyn error::Error>> {
+    let file = BufReader::new(File::open(path)?);
+    let mut lines = file.lines();
+
+    let cols = lines.next().unwrap()?.parse()?;
+    let rows = lines.next().unwrap()?.parse()?;
+    let start = lines.next().unwrap()?.parse()?;
+    let end = lines.next().unwrap()?.parse()?;
+    let has_path = lines.next().unwrap()?.parse()?;
+    let mut state = [0; 1024];
+    let mut parents = [0; 1024];
+    let mut g_score = [0; 1024];
+    let mut f_score = [0; 1024];
+
+    state
+        .iter_mut()
+        .zip(lines.by_ref().map(|line| line.unwrap().parse().unwrap()))
+        .for_each(|(state, value)| *state = value);
+
+    parents
+        .iter_mut()
+        .zip(lines.by_ref().map(|line| line.unwrap().parse().unwrap()))
+        .for_each(|(state, value)| *state = value);
+
+    g_score
+        .iter_mut()
+        .zip(lines.by_ref().map(|line| line.unwrap().parse().unwrap()))
+        .for_each(|(state, value)| *state = value);
+
+    f_score
+        .iter_mut()
+        .zip(lines.by_ref().map(|line| line.unwrap().parse().unwrap()))
+        .for_each(|(state, value)| *state = value);
+
+    Ok(path_finder {
+        cols,
+        rows,
+        start,
+        end,
+        has_path,
+        state,
+        parents,
+        g_score,
+        f_score,
+        fill_func: None,
+        score_func: None,
+        data: null_mut(),
+    })
 }
 
 #[test]
 fn original() {
-    assert_eq!(unsafe { find_path(0, 80, 12345, 0, 0, 23, 11, 24, 13) }, 0);
+    const TEST_OUTPUT_PATH: &str = "tests/original_test_out.txt";
+
+    let output = unsafe { find_path(0, 80, 12345, 0, 0, 23, 11, 24, 13) };
+    let expected_output = from_file(Path::new(TEST_OUTPUT_PATH));
+    if Some(output) != expected_output.ok() {
+        panic!("path finder different from expected");
+    }
 }
