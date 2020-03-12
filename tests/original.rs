@@ -1,20 +1,20 @@
 #![allow(non_camel_case_types, unused_mut, unused_variables, unused_assignments)]
 
 use libc;
+use once_cell::sync::OnceCell;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::{
+    cell::RefCell,
     error,
     fs::File,
     io::{BufRead, BufReader},
     path::Path,
     ptr::null_mut,
+    sync::Mutex,
 };
 use uastar::*;
 
 extern "C" {
-    #[no_mangle]
-    fn rand() -> libc::c_int;
-    #[no_mangle]
-    fn srand(__seed: libc::c_uint);
     #[no_mangle]
     fn atoi(__nptr: *const libc::c_char) -> libc::c_int;
     #[no_mangle]
@@ -33,6 +33,9 @@ pub type uint8_t = __uint8_t;
 pub type uint32_t = __uint32_t;
 #[no_mangle]
 pub static mut passable_chance: uint32_t = 0;
+
+static RNG: OnceCell<Mutex<RefCell<SmallRng>>> = OnceCell::new();
+
 unsafe extern "C" fn fill_cb(
     mut path_finder: *mut path_finder,
     mut col: int32_t,
@@ -41,7 +44,9 @@ unsafe extern "C" fn fill_cb(
     let mut is_passable: uint8_t = 0;
     is_passable = 0 as libc::c_int as uint8_t;
     /* Fill the map randomly with passable cells */
-    if rand() as libc::c_double / 2147483647 as libc::c_int as libc::c_double
+    let rand_value = RNG.get().unwrap().lock().unwrap().borrow_mut().gen::<i32>();
+
+    if rand_value as libc::c_double / 2147483647 as libc::c_int as libc::c_double
         <= passable_chance as libc::c_double / 100.0f64
     {
         is_passable = 1 as libc::c_int as uint8_t
@@ -178,7 +183,10 @@ unsafe fn find_path(
     };
 
     passable_chance = chance;
-    srand(seed);
+    RNG.set(Mutex::new(RefCell::new(SmallRng::seed_from_u64(
+        seed as u64,
+    ))))
+    .unwrap();
     if width < 1 as libc::c_int || height < 1 as libc::c_int || height * width > 1024 as libc::c_int
     {
         printf(b"Failed due width or height smaller than 1 or the number of cells (width * height) is larger than %u.\n\x00"
@@ -274,7 +282,7 @@ fn from_file(path: &Path) -> Result<path_finder, Box<dyn error::Error>> {
 fn original() {
     const TEST_OUTPUT_PATH: &str = "tests/original_test_out.txt";
 
-    let output = unsafe { find_path(0, 80, 12345, 0, 0, 23, 11, 24, 13) };
+    let mut output = unsafe { find_path(0, 80, 12345, 0, 0, 23, 11, 24, 13) };
     let expected_output = from_file(Path::new(TEST_OUTPUT_PATH));
     if Some(output) != expected_output.ok() {
         panic!("path finder different from expected");
