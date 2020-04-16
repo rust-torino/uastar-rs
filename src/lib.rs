@@ -3,6 +3,7 @@
 use std::{
     fmt::Debug,
     os::raw::{c_int, c_void},
+    ptr::null_mut,
 };
 
 pub const PATH_FINDER_MAX_CELLS: usize = 1024;
@@ -39,6 +40,25 @@ impl Debug for PathFinder {
             .field("g_score", &(&self.g_score as &[_]))
             .field("f_score", &(&self.f_score as &[_]))
             .finish()
+    }
+}
+
+impl Default for PathFinder {
+    fn default() -> Self {
+        Self {
+            cols: Default::default(),
+            rows: Default::default(),
+            start: Default::default(),
+            end: Default::default(),
+            has_path: Default::default(),
+            state: [0; PATH_FINDER_MAX_CELLS],
+            parents: [0; PATH_FINDER_MAX_CELLS],
+            g_score: [0; PATH_FINDER_MAX_CELLS],
+            f_score: [0; PATH_FINDER_MAX_CELLS],
+            fill_func: Default::default(),
+            score_func: Default::default(),
+            data: null_mut(),
+        }
     }
 }
 
@@ -347,23 +367,13 @@ pub extern "C" fn path_finder_initialize(path_finder: &mut PathFinder) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr::null_mut;
 
     #[test]
     fn open_set_is_empty() {
         let mut path_finder = PathFinder {
             cols: 5,
             rows: 4,
-            start: 0,
-            end: 0,
-            has_path: 0,
-            state: [0; PATH_FINDER_MAX_CELLS],
-            parents: [0; PATH_FINDER_MAX_CELLS],
-            g_score: [0; PATH_FINDER_MAX_CELLS],
-            f_score: [0; PATH_FINDER_MAX_CELLS],
-            fill_func: None,
-            score_func: None,
-            data: null_mut(),
+            ..Default::default()
         };
 
         assert_eq!(path_finder_open_set_is_empty(&path_finder), 1);
