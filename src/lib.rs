@@ -73,26 +73,20 @@ impl PartialEq for PathFinder {
 }
 
 extern "C" fn path_finder_heuristic(path_finder: &mut PathFinder, cell: i32) -> i32 {
-    let mut cell_y: i32 = 0;
-    let mut cell_x: i32 = 0;
-    let mut end_y: i32 = 0;
-    let mut end_x: i32 = 0;
-    let mut dx: i32 = 0;
-    let mut dy: i32 = 0;
-    cell_y = cell / path_finder.cols;
-    cell_x = cell - cell_y * path_finder.cols;
-    end_y = path_finder.end / path_finder.cols;
-    end_x = path_finder.end - end_y * path_finder.cols;
-    if cell_x > end_x {
-        dx = cell_x - end_x
+    let cell_y = cell / path_finder.cols;
+    let cell_x = cell - cell_y * path_finder.cols;
+    let end_y = path_finder.end / path_finder.cols;
+    let end_x = path_finder.end - end_y * path_finder.cols;
+    let dx = if cell_x > end_x {
+        cell_x - end_x
     } else {
-        dx = end_x - cell_x
-    }
-    if cell_y > end_y {
-        dy = cell_y - end_y
+        end_x - cell_x
+    };
+    let dy = if cell_y > end_y {
+        cell_y - end_y
     } else {
-        dy = end_y - cell_y
-    }
+        end_y - cell_y
+    };
     dx + dy
 }
 
