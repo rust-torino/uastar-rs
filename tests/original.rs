@@ -85,21 +85,19 @@ fn find_path(
     {
         println!("Invalid coordinates of start or end.");
     } else {
-        unsafe { path_finder_initialize(&mut path_finder) };
+        path_finder_initialize(&mut path_finder);
         path_finder.cols = width;
         path_finder.rows = height;
         path_finder.fill_func = Some(fill_cb);
         path_finder.score_func = None;
-        unsafe {
-            path_finder_fill(&mut path_finder);
-            path_finder_set_start(&mut path_finder, start.col, start.row);
-            path_finder_set_end(&mut path_finder, end.col, end.row);
-        }
+        path_finder_fill(&mut path_finder);
+        path_finder_set_start(&mut path_finder, start.col, start.row);
+        path_finder_set_end(&mut path_finder, end.col, end.row);
         if show_progress == 0 {
-            unsafe { path_finder_find(&mut path_finder, null_mut()) };
+            path_finder_find(&mut path_finder, null_mut());
         } else {
-            unsafe { path_finder_begin(&mut path_finder) };
-            while unsafe { path_finder_find_step(&mut path_finder, null_mut()) } == 1 {
+            path_finder_begin(&mut path_finder);
+            while path_finder_find_step(&mut path_finder, null_mut()) == 1 {
                 sleep(Duration::from_micros(25000))
             }
         }
