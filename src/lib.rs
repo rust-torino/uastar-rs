@@ -90,18 +90,16 @@ extern "C" fn path_finder_heuristic(path_finder: &mut PathFinder, cell: i32) -> 
     dx + dy
 }
 
-extern "C" fn path_finder_open_set_is_empty(path_finder: &mut PathFinder) -> u8 {
-    let mut empty: u8 = 0;
-    let mut i: i32 = 0;
-    empty = 1 as c_int as u8;
-    i = 0 as c_int;
-    while i < path_finder.cols * path_finder.rows && empty as c_int == 1 as c_int {
-        if path_finder.state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int {
-            empty = 0 as c_int as u8
-        }
-        i += 1
-    }
-    empty
+extern "C" fn path_finder_open_set_is_empty(path_finder: &PathFinder) -> u8 {
+    use std::ops::Not;
+
+    path_finder
+        .state
+        .iter()
+        .take((path_finder.cols * path_finder.rows) as usize)
+        .any(|state| state & 0x2 == 0x2)
+        .not()
+        .into()
 }
 
 extern "C" fn path_finder_lowest_in_open_set(path_finder: &mut PathFinder) -> i32 {
@@ -368,9 +366,9 @@ mod tests {
             data: null_mut(),
         };
 
-        assert_eq!(path_finder_open_set_is_empty(&mut path_finder), 1);
+        assert_eq!(path_finder_open_set_is_empty(&path_finder), 1);
 
         path_finder.state[7] = 2;
-        assert_eq!(path_finder_open_set_is_empty(&mut path_finder), 0);
+        assert_eq!(path_finder_open_set_is_empty(&path_finder), 0);
     }
 }
