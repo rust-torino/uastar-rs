@@ -5,6 +5,8 @@ use std::{
     os::raw::{c_int, c_void},
 };
 
+pub const PATH_FINDER_MAX_CELLS: usize = 1024;
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct PathFinder {
@@ -13,13 +15,14 @@ pub struct PathFinder {
     pub start: i32,
     pub end: i32,
     pub has_path: u8,
-    pub state: [u8; 1024],
-    pub parents: [i32; 1024],
-    pub g_score: [i32; 1024],
-    pub f_score: [i32; 1024],
-    pub fill_func: Option<unsafe extern "C" fn(_: *mut PathFinder, _: i32, _: i32) -> u8>,
+    pub state: [u8; PATH_FINDER_MAX_CELLS],
+    pub parents: [i32; PATH_FINDER_MAX_CELLS],
+    pub g_score: [i32; PATH_FINDER_MAX_CELLS],
+    pub f_score: [i32; PATH_FINDER_MAX_CELLS],
+    pub fill_func: Option<fn(path_finder: &mut PathFinder, col: i32, row: i32) -> u8>,
+    #[allow(clippy::type_complexity)]
     pub score_func:
-        Option<unsafe extern "C" fn(_: *mut PathFinder, _: i32, _: i32, _: *mut c_void) -> i32>,
+        Option<fn(path_finder: &mut PathFinder, col: i32, row: i32, data: *mut c_void) -> i32>,
     pub data: *mut c_void,
 }
 
@@ -148,8 +151,11 @@ pub unsafe extern "C" fn path_finder_fill(mut path_finder: *mut PathFinder) {
         let mut col: i32 = 0;
         col = 0 as c_int;
         while col < (*path_finder).cols {
-            if (*path_finder).fill_func.expect("non-null function pointer")(path_finder, col, row)
-                as c_int
+            if (*path_finder).fill_func.expect("non-null function pointer")(
+                &mut *path_finder,
+                col,
+                row,
+            ) as c_int
                 == 1 as c_int
             {
                 (*path_finder).state[(row * (*path_finder).cols + col) as usize] =
@@ -242,7 +248,7 @@ pub unsafe extern "C" fn path_finder_find_step(
                                 + (*path_finder)
                                     .score_func
                                     .expect("non-null function pointer")(
-                                    path_finder,
+                                    &mut *path_finder,
                                     n / (*path_finder).cols,
                                     n % (*path_finder).cols,
                                     data,
@@ -373,7 +379,7 @@ pub unsafe extern "C" fn path_finder_set_end(mut path_finder: *mut PathFinder, c
 pub unsafe extern "C" fn path_finder_clear_path(mut path_finder: *mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
-    while i < 1024 as c_int {
+    while i < PATH_FINDER_MAX_CELLS as c_int {
         (*path_finder).state[i as usize] = ((*path_finder).state[i as usize] as c_int
             & !(0x2 as c_int | 0x4 as c_int | 0x8 as c_int))
             as u8;
@@ -389,7 +395,7 @@ pub unsafe extern "C" fn path_finder_clear_path(mut path_finder: *mut PathFinder
 pub unsafe extern "C" fn path_finder_initialize(mut path_finder: *mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
-    while i < 1024 as c_int {
+    while i < PATH_FINDER_MAX_CELLS as c_int {
         (*path_finder).parents[i as usize] = 0 as c_int;
         (*path_finder).g_score[i as usize] = 0 as c_int;
         (*path_finder).f_score[i as usize] = 0 as c_int;

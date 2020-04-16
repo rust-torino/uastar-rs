@@ -17,7 +17,7 @@ static PASSABLE_CHANCE: Lazy<Mutex<Cell<u32>>> = Lazy::new(|| Mutex::new(Cell::n
 
 static RNG: OnceCell<Mutex<RefCell<SmallRng>>> = OnceCell::new();
 
-extern "C" fn fill_cb(_path_finder: *mut PathFinder, _col: i32, _row: i32) -> u8 {
+fn fill_cb(_path_finder: &mut PathFinder, _col: i32, _row: i32) -> u8 {
     let mut is_passable = 0u8;
     /* Fill the map randomly with passable cells */
     let rand_value = RNG.get().unwrap().lock().unwrap().borrow_mut().gen::<i32>();
@@ -88,8 +88,7 @@ fn find_path(
         unsafe { path_finder_initialize(&mut path_finder) };
         path_finder.cols = width;
         path_finder.rows = height;
-        path_finder.fill_func =
-            Some(fill_cb as unsafe extern "C" fn(_: *mut PathFinder, _: i32, _: i32) -> u8);
+        path_finder.fill_func = Some(fill_cb);
         path_finder.score_func = None;
         unsafe {
             path_finder_fill(&mut path_finder);
