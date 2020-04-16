@@ -130,7 +130,7 @@ extern "C" fn path_finder_lowest_in_open_set(path_finder: &mut PathFinder) -> i3
     }
     current_lowest
 }
-extern "C" fn path_finder_reconstruct_path(mut path_finder: &mut PathFinder) {
+extern "C" fn path_finder_reconstruct_path(path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = path_finder.end;
     while i != path_finder.start {
@@ -144,7 +144,7 @@ extern "C" fn path_finder_reconstruct_path(mut path_finder: &mut PathFinder) {
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_fill(mut path_finder: &mut PathFinder) {
+pub extern "C" fn path_finder_fill(path_finder: &mut PathFinder) {
     let mut row: i32 = 0;
     row = 0 as c_int;
     while row < path_finder.rows {
@@ -173,13 +173,13 @@ pub extern "C" fn path_finder_fill(mut path_finder: &mut PathFinder) {
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_begin(mut path_finder: &mut PathFinder) {
+pub extern "C" fn path_finder_begin(path_finder: &mut PathFinder) {
     path_finder.state[path_finder.start as usize] =
         (path_finder.state[path_finder.start as usize] as c_int | 0x2 as c_int) as u8;
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_find_step(mut path_finder: &mut PathFinder, data: *mut c_void) -> u8 {
+pub extern "C" fn path_finder_find_step(path_finder: &mut PathFinder, data: *mut c_void) -> u8 {
     let mut run: u8 = 0;
     let mut current: i32 = 0;
     let mut count: i32 = 0;
@@ -309,17 +309,17 @@ pub extern "C" fn path_finder_is_end(path_finder: &mut PathFinder, col: i32, row
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_set_start(mut path_finder: &mut PathFinder, col: i32, row: i32) {
+pub extern "C" fn path_finder_set_start(path_finder: &mut PathFinder, col: i32, row: i32) {
     path_finder.start = row * path_finder.cols + col;
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_set_end(mut path_finder: &mut PathFinder, col: i32, row: i32) {
+pub extern "C" fn path_finder_set_end(path_finder: &mut PathFinder, col: i32, row: i32) {
     path_finder.end = row * path_finder.cols + col;
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_clear_path(mut path_finder: &mut PathFinder) {
+pub extern "C" fn path_finder_clear_path(path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
     while i < PATH_FINDER_MAX_CELLS as c_int {
@@ -335,7 +335,7 @@ pub extern "C" fn path_finder_clear_path(mut path_finder: &mut PathFinder) {
 }
 
 #[no_mangle]
-pub extern "C" fn path_finder_initialize(mut path_finder: &mut PathFinder) {
+pub extern "C" fn path_finder_initialize(path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
     while i < PATH_FINDER_MAX_CELLS as c_int {
