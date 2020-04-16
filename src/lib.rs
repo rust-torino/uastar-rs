@@ -122,7 +122,7 @@ extern "C" fn path_finder_open_set_is_empty(path_finder: &PathFinder) -> u8 {
         .into()
 }
 
-extern "C" fn path_finder_lowest_in_open_set(path_finder: &mut PathFinder) -> i32 {
+extern "C" fn path_finder_lowest_in_open_set(path_finder: &PathFinder) -> i32 {
     let mut lowest_f: i32 = 0;
     let mut current_lowest: i32 = 0;
     let mut count: i32 = 0;
@@ -380,5 +380,33 @@ mod tests {
 
         path_finder.state[7] = 2;
         assert_eq!(path_finder_open_set_is_empty(&path_finder), 0);
+    }
+
+    #[test]
+    fn lowest_in_open_set() {
+        let path_finder = PathFinder::default();
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 0);
+
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            ..Default::default()
+        };
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 0);
+
+        path_finder.state[3] = 0x2;
+        path_finder.f_score[3] = -5;
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 3);
+
+        path_finder.state[6] = 0x2;
+        path_finder.f_score[6] = -9;
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 6);
+
+        path_finder.state[11] = 0x2;
+        path_finder.f_score[11] = -7;
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 6);
+
+        path_finder.f_score[11] = -10;
+        assert_eq!(path_finder_lowest_in_open_set(&path_finder), 11);
     }
 }
