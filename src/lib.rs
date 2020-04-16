@@ -7,7 +7,7 @@ pub type int32_t = __int32_t;
 pub type uint8_t = __uint8_t;
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct path_finder {
+pub struct PathFinder {
     pub cols: int32_t,
     pub rows: int32_t,
     pub start: int32_t,
@@ -18,10 +18,10 @@ pub struct path_finder {
     pub g_score: [int32_t; 1024],
     pub f_score: [int32_t; 1024],
     pub fill_func:
-        Option<unsafe extern "C" fn(_: *mut path_finder, _: int32_t, _: int32_t) -> uint8_t>,
+        Option<unsafe extern "C" fn(_: *mut PathFinder, _: int32_t, _: int32_t) -> uint8_t>,
     pub score_func: Option<
         unsafe extern "C" fn(
-            _: *mut path_finder,
+            _: *mut PathFinder,
             _: int32_t,
             _: int32_t,
             _: *mut libc::c_void,
@@ -30,8 +30,8 @@ pub struct path_finder {
     pub data: *mut libc::c_void,
 }
 
-impl PartialEq for path_finder {
-    fn eq(&self, other: &path_finder) -> bool {
+impl PartialEq for PathFinder {
+    fn eq(&self, other: &PathFinder) -> bool {
         self.cols.eq(&other.cols)
             && self.rows.eq(&other.rows)
             && self.start.eq(&other.start)
@@ -60,10 +60,7 @@ impl PartialEq for path_finder {
     }
 }
 
-unsafe extern "C" fn path_finder_heuristic(
-    path_finder: *mut path_finder,
-    cell: int32_t,
-) -> int32_t {
+unsafe extern "C" fn path_finder_heuristic(path_finder: *mut PathFinder, cell: int32_t) -> int32_t {
     let mut cell_y: int32_t = 0;
     let mut cell_x: int32_t = 0;
     let mut end_y: int32_t = 0;
@@ -84,9 +81,10 @@ unsafe extern "C" fn path_finder_heuristic(
     } else {
         dy = end_y - cell_y
     }
-    return dx + dy;
+    dx + dy
 }
-unsafe extern "C" fn path_finder_open_set_is_empty(path_finder: *mut path_finder) -> uint8_t {
+
+unsafe extern "C" fn path_finder_open_set_is_empty(path_finder: *mut PathFinder) -> uint8_t {
     let mut empty: uint8_t = 0;
     let mut i: int32_t = 0;
     empty = 1 as libc::c_int as uint8_t;
@@ -100,9 +98,10 @@ unsafe extern "C" fn path_finder_open_set_is_empty(path_finder: *mut path_finder
         }
         i = i + 1 as libc::c_int
     }
-    return empty;
+    empty
 }
-unsafe extern "C" fn path_finder_lowest_in_open_set(path_finder: *mut path_finder) -> int32_t {
+
+unsafe extern "C" fn path_finder_lowest_in_open_set(path_finder: *mut PathFinder) -> int32_t {
     let mut lowest_f: int32_t = 0;
     let mut current_lowest: int32_t = 0;
     let mut count: int32_t = 0;
@@ -122,9 +121,9 @@ unsafe extern "C" fn path_finder_lowest_in_open_set(path_finder: *mut path_finde
         }
         i = i + 1 as libc::c_int
     }
-    return current_lowest;
+    current_lowest
 }
-unsafe extern "C" fn path_finder_reconstruct_path(mut path_finder: *mut path_finder) {
+unsafe extern "C" fn path_finder_reconstruct_path(mut path_finder: *mut PathFinder) {
     let mut i: int32_t = 0;
     i = (*path_finder).end;
     while i != (*path_finder).start {
@@ -136,8 +135,9 @@ unsafe extern "C" fn path_finder_reconstruct_path(mut path_finder: *mut path_fin
         i = (*path_finder).parents[i as usize]
     }
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn path_finder_fill(mut path_finder: *mut path_finder) {
+pub unsafe extern "C" fn path_finder_fill(mut path_finder: *mut PathFinder) {
     let mut row: int32_t = 0;
     row = 0 as libc::c_int;
     while row < (*path_finder).rows {
@@ -163,15 +163,17 @@ pub unsafe extern "C" fn path_finder_fill(mut path_finder: *mut path_finder) {
         row = row + 1 as libc::c_int
     }
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn path_finder_begin(mut path_finder: *mut path_finder) {
+pub unsafe extern "C" fn path_finder_begin(mut path_finder: *mut PathFinder) {
     (*path_finder).state[(*path_finder).start as usize] =
         ((*path_finder).state[(*path_finder).start as usize] as libc::c_int | 0x2 as libc::c_int)
             as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_find_step(
-    mut path_finder: *mut path_finder,
+    mut path_finder: *mut PathFinder,
     data: *mut libc::c_void,
 ) -> uint8_t {
     let mut run: uint8_t = 0;
@@ -260,7 +262,7 @@ pub unsafe extern "C" fn path_finder_find_step(
             j = j + 1 as libc::c_int
         }
     }
-    return run;
+    run
 }
 /*
 Copyright (C) 2017 Felipe Ferreira da Silva
@@ -283,21 +285,23 @@ the following restrictions:
 */
 /* Bit flags */
 #[no_mangle]
-pub unsafe extern "C" fn path_finder_find(path_finder: *mut path_finder, data: *mut libc::c_void) {
+pub unsafe extern "C" fn path_finder_find(path_finder: *mut PathFinder, data: *mut libc::c_void) {
     path_finder_begin(path_finder);
     while path_finder_find_step(path_finder, data) as libc::c_int == 1 as libc::c_int {}
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_get_heuristic_score(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> int32_t {
-    return (*path_finder).f_score[(row * (*path_finder).cols + col) as usize];
+    (*path_finder).f_score[(row * (*path_finder).cols + col) as usize]
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_passable(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
@@ -305,9 +309,10 @@ pub unsafe extern "C" fn path_finder_is_passable(
         & 0x1 as libc::c_int
         == 0x1 as libc::c_int) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_closed(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
@@ -315,9 +320,10 @@ pub unsafe extern "C" fn path_finder_is_closed(
         & 0x4 as libc::c_int
         == 0x4 as libc::c_int) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_open(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
@@ -325,9 +331,10 @@ pub unsafe extern "C" fn path_finder_is_open(
         & 0x2 as libc::c_int
         == 0x2 as libc::c_int) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_path(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
@@ -335,40 +342,45 @@ pub unsafe extern "C" fn path_finder_is_path(
         & 0x8 as libc::c_int
         == 0x8 as libc::c_int) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_start(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
     return (row * (*path_finder).cols + col == (*path_finder).start) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_is_end(
-    path_finder: *mut path_finder,
+    path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) -> uint8_t {
     return (row * (*path_finder).cols + col == (*path_finder).end) as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_set_start(
-    mut path_finder: *mut path_finder,
+    mut path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) {
     (*path_finder).start = row * (*path_finder).cols + col;
 }
+
 #[no_mangle]
 pub unsafe extern "C" fn path_finder_set_end(
-    mut path_finder: *mut path_finder,
+    mut path_finder: *mut PathFinder,
     col: int32_t,
     row: int32_t,
 ) {
     (*path_finder).end = row * (*path_finder).cols + col;
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn path_finder_clear_path(mut path_finder: *mut path_finder) {
+pub unsafe extern "C" fn path_finder_clear_path(mut path_finder: *mut PathFinder) {
     let mut i: int32_t = 0;
     i = 0 as libc::c_int;
     while i < 1024 as libc::c_int {
@@ -382,8 +394,9 @@ pub unsafe extern "C" fn path_finder_clear_path(mut path_finder: *mut path_finde
     }
     (*path_finder).has_path = 0 as libc::c_int as uint8_t;
 }
+
 #[no_mangle]
-pub unsafe extern "C" fn path_finder_initialize(mut path_finder: *mut path_finder) {
+pub unsafe extern "C" fn path_finder_initialize(mut path_finder: *mut PathFinder) {
     let mut i: int32_t = 0;
     i = 0 as libc::c_int;
     while i < 1024 as libc::c_int {

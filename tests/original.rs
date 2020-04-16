@@ -1,173 +1,58 @@
-#![allow(non_camel_case_types, unused_mut, unused_variables, unused_assignments)]
-
-use libc;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     error,
     fs::File,
     io::{BufRead, BufReader},
     path::Path,
     ptr::null_mut,
     sync::Mutex,
+    thread::sleep,
+    time::Duration,
 };
 use uastar::*;
 
-extern "C" {
-    #[no_mangle]
-    fn atoi(__nptr: *const libc::c_char) -> libc::c_int;
-    #[no_mangle]
-    fn printf(_: *const libc::c_char, _: ...) -> libc::c_int;
-    #[no_mangle]
-    fn puts(__s: *const libc::c_char) -> libc::c_int;
-    #[no_mangle]
-    fn usleep(__useconds: __useconds_t) -> libc::c_int;
-}
-pub type __uint8_t = libc::c_uchar;
-pub type __int32_t = libc::c_int;
-pub type __uint32_t = libc::c_uint;
-pub type __useconds_t = libc::c_uint;
-pub type int32_t = __int32_t;
-pub type uint8_t = __uint8_t;
-pub type uint32_t = __uint32_t;
-#[no_mangle]
-pub static mut passable_chance: uint32_t = 0;
+static PASSABLE_CHANCE: Lazy<Mutex<Cell<u32>>> = Lazy::new(|| Mutex::new(Cell::new(0)));
 
 static RNG: OnceCell<Mutex<RefCell<SmallRng>>> = OnceCell::new();
 
-unsafe extern "C" fn fill_cb(
-    mut path_finder: *mut path_finder,
-    mut col: int32_t,
-    mut row: int32_t,
-) -> uint8_t {
-    let mut is_passable: uint8_t = 0;
-    is_passable = 0 as libc::c_int as uint8_t;
+extern "C" fn fill_cb(_path_finder: *mut PathFinder, _col: i32, _row: i32) -> u8 {
+    let mut is_passable = 0u8;
     /* Fill the map randomly with passable cells */
     let rand_value = RNG.get().unwrap().lock().unwrap().borrow_mut().gen::<i32>();
 
-    if rand_value as libc::c_double / 2147483647 as libc::c_int as libc::c_double
-        <= passable_chance as libc::c_double / 100.0f64
+    if rand_value as f64 / 2_147_483_647_f64
+        <= PASSABLE_CHANCE.lock().unwrap().get() as f64 / 100.0f64
     {
-        is_passable = 1 as libc::c_int as uint8_t
+        is_passable = 1u8
     }
-    return is_passable;
+
+    is_passable
 }
 
-#[allow(dead_code)]
-unsafe extern "C" fn print_map(
-    mut path_finder: *mut path_finder,
-    mut print_open_and_closed: uint8_t,
-) {
-    let mut row: int32_t = 0;
-    let mut col: int32_t = 0;
-    printf(
-        b"  Passable chance: %u\n\x00" as *const u8 as *const libc::c_char,
-        passable_chance,
-    );
-    printf(
-        b"            Start: \'%c\' (or \'%c\' if fall in a wall)\n\x00" as *const u8
-            as *const libc::c_char,
-        'S' as i32,
-        's' as i32,
-    );
-    printf(
-        b"              End: \'%c\' (or \'%c\' if fall in a wall)\n\x00" as *const u8
-            as *const libc::c_char,
-        'E' as i32,
-        'e' as i32,
-    );
-    printf(
-        b"        Open path: \'%c\'\n\x00" as *const u8 as *const libc::c_char,
-        'O' as i32,
-    );
-    printf(
-        b"      Closed path: \'%c\'\n\x00" as *const u8 as *const libc::c_char,
-        'X' as i32,
-    );
-    printf(
-        b"             Path: \'%c\'\n\x00" as *const u8 as *const libc::c_char,
-        '*' as i32,
-    );
-    printf(
-        b"       Unpassable: \'%c\'\n\x00" as *const u8 as *const libc::c_char,
-        '#' as i32,
-    );
-    printf(b"Map:\n\x00" as *const u8 as *const libc::c_char);
-    col = 0 as libc::c_int;
-    while col < (*path_finder).cols + 2 as libc::c_int {
-        printf(b"#\x00" as *const u8 as *const libc::c_char);
-        col = col + 1 as libc::c_int
-    }
-    printf(b"\n\x00" as *const u8 as *const libc::c_char);
-    row = 0 as libc::c_int;
-    while row < (*path_finder).rows {
-        col = 0 as libc::c_int;
-        printf(b"#\x00" as *const u8 as *const libc::c_char);
-        while col < (*path_finder).cols {
-            if path_finder_is_start(path_finder, col, row) as libc::c_int == 1 as libc::c_int {
-                if path_finder_is_passable(path_finder, col, row) as libc::c_int == 1 as libc::c_int
-                {
-                    printf(b"%c\x00" as *const u8 as *const libc::c_char, 'S' as i32);
-                } else {
-                    printf(b"%c\x00" as *const u8 as *const libc::c_char, 's' as i32);
-                }
-            } else if path_finder_is_end(path_finder, col, row) as libc::c_int == 1 as libc::c_int {
-                if path_finder_is_passable(path_finder, col, row) as libc::c_int == 1 as libc::c_int
-                {
-                    printf(b"%c\x00" as *const u8 as *const libc::c_char, 'E' as i32);
-                } else {
-                    printf(b"%c\x00" as *const u8 as *const libc::c_char, 'e' as i32);
-                }
-            } else if path_finder_is_passable(path_finder, col, row) as libc::c_int
-                == 0 as libc::c_int
-            {
-                printf(b"%c\x00" as *const u8 as *const libc::c_char, '#' as i32);
-            } else if path_finder_is_path(path_finder, col, row) as libc::c_int == 1 as libc::c_int
-            {
-                printf(b"%c\x00" as *const u8 as *const libc::c_char, '*' as i32);
-            } else if print_open_and_closed as libc::c_int == 1 as libc::c_int
-                && path_finder_is_open(path_finder, col, row) as libc::c_int == 1 as libc::c_int
-                && path_finder_is_closed(path_finder, col, row) as libc::c_int == 0 as libc::c_int
-            {
-                printf(b"%c\x00" as *const u8 as *const libc::c_char, 'O' as i32);
-            } else if print_open_and_closed as libc::c_int == 1 as libc::c_int
-                && path_finder_is_closed(path_finder, col, row) as libc::c_int == 1 as libc::c_int
-            {
-                printf(b"%c\x00" as *const u8 as *const libc::c_char, 'X' as i32);
-            } else {
-                printf(b" \x00" as *const u8 as *const libc::c_char);
-            }
-            col += 1
-        }
-        printf(b"#\n\x00" as *const u8 as *const libc::c_char);
-        row += 1
-    }
-    col = 0 as libc::c_int;
-    while col < (*path_finder).cols + 2 as libc::c_int {
-        printf(b"#\x00" as *const u8 as *const libc::c_char);
-        col = col + 1 as libc::c_int
-    }
-    printf(b"\n\x00" as *const u8 as *const libc::c_char);
-    if (*path_finder).has_path != 0 {
-        printf(b"A path was found!\n\n\x00" as *const u8 as *const libc::c_char);
-    } else {
-        printf(b"No path was found!\n\n\x00" as *const u8 as *const libc::c_char);
-    };
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Pos {
+    col: i32,
+    row: i32,
 }
 
-unsafe fn find_path(
-    show_progress: uint8_t,
-    chance: uint32_t,
-    seed: libc::c_uint,
-    s_col: libc::c_int,
-    s_row: libc::c_int,
-    e_col: libc::c_int,
-    e_row: libc::c_int,
-    width: libc::c_int,
-    height: libc::c_int,
-) -> path_finder {
-    let mut path_finder: path_finder = path_finder {
+impl Pos {
+    fn new(col: i32, row: i32) -> Pos {
+        Pos { col, row }
+    }
+}
+
+fn find_path(
+    show_progress: u8,
+    chance: u32,
+    seed: u32,
+    start: Pos,
+    end: Pos,
+    width: i32,
+    height: i32,
+) -> PathFinder {
+    let mut path_finder = PathFinder {
         cols: 0,
         rows: 0,
         start: 0,
@@ -179,48 +64,45 @@ unsafe fn find_path(
         f_score: [0; 1024],
         fill_func: None,
         score_func: None,
-        data: 0 as *mut libc::c_void,
+        data: null_mut(),
     };
 
-    passable_chance = chance;
+    PASSABLE_CHANCE.lock().unwrap().set(chance);
     RNG.set(Mutex::new(RefCell::new(SmallRng::seed_from_u64(
         seed as u64,
     ))))
     .unwrap();
-    if width < 1 as libc::c_int || height < 1 as libc::c_int || height * width > 1024 as libc::c_int
+    if width < 1 || height < 1 || height * width > 1024 {
+        println!("Failed due width or height smaller than 1 or the number of cells (width * height) is larger than 1024.");
+    } else if start.col < 0
+        || start.col > width - 1
+        || end.col < 0
+        || end.col > width - 1
+        || start.row < 0
+        || start.row > height - 1
+        || end.row < 0
+        || end.row > height - 1
     {
-        printf(b"Failed due width or height smaller than 1 or the number of cells (width * height) is larger than %u.\n\x00"
-                       as *const u8 as *const libc::c_char,
-                   1024 as libc::c_int);
-    } else if s_col < 0 as libc::c_int
-        || s_col > width - 1 as libc::c_int
-        || e_col < 0 as libc::c_int
-        || e_col > width - 1 as libc::c_int
-        || s_row < 0 as libc::c_int
-        || s_row > height - 1 as libc::c_int
-        || e_row < 0 as libc::c_int
-        || e_row > height - 1 as libc::c_int
-    {
-        puts(b"Invalid coordinates of start or end.\x00" as *const u8 as *const libc::c_char);
+        println!("Invalid coordinates of start or end.");
     } else {
-        path_finder_initialize(&mut path_finder);
+        unsafe { path_finder_initialize(&mut path_finder) };
         path_finder.cols = width;
         path_finder.rows = height;
         path_finder.fill_func = Some(
-            fill_cb as unsafe extern "C" fn(_: *mut path_finder, _: int32_t, _: int32_t) -> uint8_t,
+            fill_cb as unsafe extern "C" fn(_: *mut PathFinder, _: int32_t, _: int32_t) -> uint8_t,
         );
         path_finder.score_func = None;
-        path_finder_fill(&mut path_finder);
-        path_finder_set_start(&mut path_finder, s_col, s_row);
-        path_finder_set_end(&mut path_finder, e_col, e_row);
-        if show_progress as libc::c_int == 0 as libc::c_int {
-            path_finder_find(&mut path_finder, 0 as *mut libc::c_void);
+        unsafe {
+            path_finder_fill(&mut path_finder);
+            path_finder_set_start(&mut path_finder, start.col, start.row);
+            path_finder_set_end(&mut path_finder, end.col, end.row);
+        }
+        if show_progress == 0 {
+            unsafe { path_finder_find(&mut path_finder, null_mut()) };
         } else {
-            path_finder_begin(&mut path_finder);
-            while path_finder_find_step(&mut path_finder, 0 as *mut libc::c_void) as libc::c_int
-                == 1 as libc::c_int
-            {
-                usleep(25000 as libc::c_int as __useconds_t);
+            unsafe { path_finder_begin(&mut path_finder) };
+            while unsafe { path_finder_find_step(&mut path_finder, null_mut()) } == 1 {
+                sleep(Duration::from_micros(25000))
             }
         }
     }
@@ -228,7 +110,7 @@ unsafe fn find_path(
     path_finder
 }
 
-fn from_file(path: &Path) -> Result<path_finder, Box<dyn error::Error>> {
+fn from_file(path: &Path) -> Result<PathFinder, Box<dyn error::Error>> {
     let file = BufReader::new(File::open(path)?);
     let mut lines = file.lines();
 
@@ -262,7 +144,7 @@ fn from_file(path: &Path) -> Result<path_finder, Box<dyn error::Error>> {
         .zip(lines.by_ref().map(|line| line.unwrap().parse().unwrap()))
         .for_each(|(state, value)| *state = value);
 
-    Ok(path_finder {
+    Ok(PathFinder {
         cols,
         rows,
         start,
@@ -282,7 +164,7 @@ fn from_file(path: &Path) -> Result<path_finder, Box<dyn error::Error>> {
 fn original() {
     const TEST_OUTPUT_PATH: &str = "tests/original_test_out.txt";
 
-    let mut output = unsafe { find_path(0, 80, 12345, 0, 0, 23, 11, 24, 13) };
+    let output = find_path(0, 80, 12345, Pos::new(0, 0), Pos::new(23, 11), 24, 13);
     let expected_output = from_file(Path::new(TEST_OUTPUT_PATH));
     if Some(output) != expected_output.ok() {
         panic!("path finder different from expected");
