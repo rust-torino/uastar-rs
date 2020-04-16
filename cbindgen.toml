@@ -1,0 +1,8 @@
+language = "C"
+include_guard = "UASTAR_H"
+style = "tag"
+sys_includes = ["stdint.h"]
+no_includes = true
+
+[export.rename]
+"PathFinder" = "path_finder"
