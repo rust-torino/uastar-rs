@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types, unused_assignments)]
 
 use std::{
+    convert::TryInto,
     fmt::Debug,
     os::raw::{c_int, c_void},
     ptr::null_mut,
@@ -123,25 +124,21 @@ extern "C" fn path_finder_open_set_is_empty(path_finder: &PathFinder) -> u8 {
 }
 
 extern "C" fn path_finder_lowest_in_open_set(path_finder: &PathFinder) -> i32 {
-    let mut lowest_f: i32 = 0;
-    let mut current_lowest: i32 = 0;
-    let mut count: i32 = 0;
-    let mut i: i32 = 0;
-    count = path_finder.cols * path_finder.rows;
-    lowest_f = count;
-    current_lowest = 0 as c_int;
-    i = 0 as c_int;
-    while i < count {
-        if path_finder.state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int
-            && path_finder.f_score[i as usize] < lowest_f
-        {
-            lowest_f = path_finder.f_score[i as usize];
-            current_lowest = i
-        }
-        i += 1
-    }
-    current_lowest
+    path_finder
+        .state
+        .iter()
+        .zip(path_finder.f_score.iter())
+        .enumerate()
+        .take((path_finder.cols * path_finder.rows) as usize)
+        .filter(|(_, (&state, _))| state & 0x2 == 0x2)
+        .map(|(index, (_, f_score))| (index, f_score))
+        .min_by_key(|(_, &f_score)| f_score)
+        .map(|(index, _)| index)
+        .unwrap_or(0)
+        .try_into()
+        .unwrap()
 }
+
 extern "C" fn path_finder_reconstruct_path(path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = path_finder.end;
