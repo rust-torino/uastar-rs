@@ -345,3 +345,32 @@ pub extern "C" fn path_finder_initialize(path_finder: &mut PathFinder) {
     path_finder.end = 0 as c_int;
     path_finder.has_path = 0 as c_int as u8;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ptr::null_mut;
+
+    #[test]
+    fn open_set_is_empty() {
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            start: 0,
+            end: 0,
+            has_path: 0,
+            state: [0; PATH_FINDER_MAX_CELLS],
+            parents: [0; PATH_FINDER_MAX_CELLS],
+            g_score: [0; PATH_FINDER_MAX_CELLS],
+            f_score: [0; PATH_FINDER_MAX_CELLS],
+            fill_func: None,
+            score_func: None,
+            data: null_mut(),
+        };
+
+        assert_eq!(path_finder_open_set_is_empty(&mut path_finder), 1);
+
+        path_finder.state[7] = 2;
+        assert_eq!(path_finder_open_set_is_empty(&mut path_finder), 0);
+    }
+}
