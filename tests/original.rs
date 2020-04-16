@@ -58,10 +58,10 @@ fn find_path(
         start: 0,
         end: 0,
         has_path: 0,
-        state: [0; 1024],
-        parents: [0; 1024],
-        g_score: [0; 1024],
-        f_score: [0; 1024],
+        state: [0; PATH_FINDER_MAX_CELLS],
+        parents: [0; PATH_FINDER_MAX_CELLS],
+        g_score: [0; PATH_FINDER_MAX_CELLS],
+        f_score: [0; PATH_FINDER_MAX_CELLS],
         fill_func: None,
         score_func: None,
         data: null_mut(),
@@ -72,8 +72,8 @@ fn find_path(
         seed as u64,
     ))))
     .unwrap();
-    if width < 1 || height < 1 || height * width > 1024 {
-        println!("Failed due width or height smaller than 1 or the number of cells (width * height) is larger than 1024.");
+    if width < 1 || height < 1 || height as usize * width as usize > PATH_FINDER_MAX_CELLS {
+        println!("Failed due width or height smaller than 1 or the number of cells (width * height) is larger than {}.", PATH_FINDER_MAX_CELLS);
     } else if start.col < 0
         || start.col > width - 1
         || end.col < 0
@@ -115,10 +115,10 @@ fn from_file(path: &Path) -> Result<PathFinder, Box<dyn error::Error>> {
     let start = lines.next().unwrap()?.parse()?;
     let end = lines.next().unwrap()?.parse()?;
     let has_path = lines.next().unwrap()?.parse()?;
-    let mut state = [0; 1024];
-    let mut parents = [0; 1024];
-    let mut g_score = [0; 1024];
-    let mut f_score = [0; 1024];
+    let mut state = [0; PATH_FINDER_MAX_CELLS];
+    let mut parents = [0; PATH_FINDER_MAX_CELLS];
+    let mut g_score = [0; PATH_FINDER_MAX_CELLS];
+    let mut f_score = [0; PATH_FINDER_MAX_CELLS];
 
     state
         .iter_mut()
