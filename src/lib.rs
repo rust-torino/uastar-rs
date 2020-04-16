@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types, unused_assignments)]
 
 use ::libc;
+use std::fmt::Debug;
 pub type __uint8_t = libc::c_uchar;
 pub type __int32_t = libc::c_int;
 pub type int32_t = __int32_t;
@@ -28,6 +29,22 @@ pub struct PathFinder {
         ) -> int32_t,
     >,
     pub data: *mut libc::c_void,
+}
+
+impl Debug for PathFinder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PathFinder")
+            .field("cols", &self.cols)
+            .field("rows", &self.rows)
+            .field("start", &self.start)
+            .field("end", &self.end)
+            .field("has_path", &self.has_path)
+            .field("state", &(&self.state as &[_]))
+            .field("parents", &(&self.parents as &[_]))
+            .field("g_score", &(&self.g_score as &[_]))
+            .field("f_score", &(&self.f_score as &[_]))
+            .finish()
+    }
 }
 
 impl PartialEq for PathFinder {
