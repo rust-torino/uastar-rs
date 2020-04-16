@@ -79,10 +79,10 @@ extern "C" fn path_finder_heuristic(path_finder: &mut PathFinder, cell: i32) -> 
     let mut end_x: i32 = 0;
     let mut dx: i32 = 0;
     let mut dy: i32 = 0;
-    cell_y = cell / (*path_finder).cols;
-    cell_x = cell - cell_y * (*path_finder).cols;
-    end_y = (*path_finder).end / (*path_finder).cols;
-    end_x = (*path_finder).end - end_y * (*path_finder).cols;
+    cell_y = cell / path_finder.cols;
+    cell_x = cell - cell_y * path_finder.cols;
+    end_y = path_finder.end / path_finder.cols;
+    end_x = path_finder.end - end_y * path_finder.cols;
     if cell_x > end_x {
         dx = cell_x - end_x
     } else {
@@ -101,8 +101,8 @@ extern "C" fn path_finder_open_set_is_empty(path_finder: &mut PathFinder) -> u8 
     let mut i: i32 = 0;
     empty = 1 as c_int as u8;
     i = 0 as c_int;
-    while i < (*path_finder).cols * (*path_finder).rows && empty as c_int == 1 as c_int {
-        if (*path_finder).state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int {
+    while i < path_finder.cols * path_finder.rows && empty as c_int == 1 as c_int {
+        if path_finder.state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int {
             empty = 0 as c_int as u8
         }
         i += 1
@@ -115,15 +115,15 @@ extern "C" fn path_finder_lowest_in_open_set(path_finder: &mut PathFinder) -> i3
     let mut current_lowest: i32 = 0;
     let mut count: i32 = 0;
     let mut i: i32 = 0;
-    count = (*path_finder).cols * (*path_finder).rows;
+    count = path_finder.cols * path_finder.rows;
     lowest_f = count;
     current_lowest = 0 as c_int;
     i = 0 as c_int;
     while i < count {
-        if (*path_finder).state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int
-            && (*path_finder).f_score[i as usize] < lowest_f
+        if path_finder.state[i as usize] as c_int & 0x2 as c_int == 0x2 as c_int
+            && path_finder.f_score[i as usize] < lowest_f
         {
-            lowest_f = (*path_finder).f_score[i as usize];
+            lowest_f = path_finder.f_score[i as usize];
             current_lowest = i
         }
         i += 1
@@ -132,14 +132,14 @@ extern "C" fn path_finder_lowest_in_open_set(path_finder: &mut PathFinder) -> i3
 }
 extern "C" fn path_finder_reconstruct_path(mut path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
-    i = (*path_finder).end;
-    while i != (*path_finder).start {
-        if (*path_finder).parents[i as usize] != (*path_finder).start {
-            (*path_finder).state[(*path_finder).parents[i as usize] as usize] =
-                ((*path_finder).state[(*path_finder).parents[i as usize] as usize] as c_int
+    i = path_finder.end;
+    while i != path_finder.start {
+        if path_finder.parents[i as usize] != path_finder.start {
+            path_finder.state[path_finder.parents[i as usize] as usize] =
+                (path_finder.state[path_finder.parents[i as usize] as usize] as c_int
                     | 0x8 as c_int) as u8
         }
-        i = (*path_finder).parents[i as usize]
+        i = path_finder.parents[i as usize]
     }
 }
 
@@ -147,23 +147,23 @@ extern "C" fn path_finder_reconstruct_path(mut path_finder: &mut PathFinder) {
 pub extern "C" fn path_finder_fill(mut path_finder: &mut PathFinder) {
     let mut row: i32 = 0;
     row = 0 as c_int;
-    while row < (*path_finder).rows {
+    while row < path_finder.rows {
         let mut col: i32 = 0;
         col = 0 as c_int;
-        while col < (*path_finder).cols {
-            if (*path_finder).fill_func.expect("non-null function pointer")(
+        while col < path_finder.cols {
+            if path_finder.fill_func.expect("non-null function pointer")(
                 &mut *path_finder,
                 col,
                 row,
             ) as c_int
                 == 1 as c_int
             {
-                (*path_finder).state[(row * (*path_finder).cols + col) as usize] =
-                    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int
+                path_finder.state[(row * path_finder.cols + col) as usize] =
+                    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int
                         | 0x1 as c_int) as u8
             } else {
-                (*path_finder).state[(row * (*path_finder).cols + col) as usize] =
-                    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int
+                path_finder.state[(row * path_finder.cols + col) as usize] =
+                    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int
                         & !(0x1 as c_int)) as u8
             }
             col += 1
@@ -174,8 +174,8 @@ pub extern "C" fn path_finder_fill(mut path_finder: &mut PathFinder) {
 
 #[no_mangle]
 pub extern "C" fn path_finder_begin(mut path_finder: &mut PathFinder) {
-    (*path_finder).state[(*path_finder).start as usize] =
-        ((*path_finder).state[(*path_finder).start as usize] as c_int | 0x2 as c_int) as u8;
+    path_finder.state[path_finder.start as usize] =
+        (path_finder.state[path_finder.start as usize] as c_int | 0x2 as c_int) as u8;
 }
 
 #[no_mangle]
@@ -185,39 +185,39 @@ pub extern "C" fn path_finder_find_step(mut path_finder: &mut PathFinder, data: 
     let mut count: i32 = 0;
     run = 1 as c_int as u8;
     current = 0 as c_int;
-    count = (*path_finder).cols * (*path_finder).rows;
+    count = path_finder.cols * path_finder.rows;
     current = path_finder_lowest_in_open_set(path_finder);
-    if current == (*path_finder).end {
+    if current == path_finder.end {
         path_finder_reconstruct_path(path_finder);
         run = 0 as c_int as u8;
-        (*path_finder).has_path = 1 as c_int as u8
+        path_finder.has_path = 1 as c_int as u8
     } else if path_finder_open_set_is_empty(path_finder) as c_int == 1 as c_int {
         run = 0 as c_int as u8;
-        (*path_finder).has_path = 0 as c_int as u8
+        path_finder.has_path = 0 as c_int as u8
     } else {
         let mut neighbors: [i32; 4] = [0; 4];
         let mut j: i32 = 0;
         let mut tmp_g_score: i32 = 0;
-        (*path_finder).state[current as usize] =
-            ((*path_finder).state[current as usize] as c_int & !(0x2 as c_int)) as u8;
-        (*path_finder).state[current as usize] =
-            ((*path_finder).state[current as usize] as c_int | 0x4 as c_int) as u8;
+        path_finder.state[current as usize] =
+            (path_finder.state[current as usize] as c_int & !(0x2 as c_int)) as u8;
+        path_finder.state[current as usize] =
+            (path_finder.state[current as usize] as c_int | 0x4 as c_int) as u8;
         /* Left */
-        if current % (*path_finder).cols == 0 as c_int {
+        if current % path_finder.cols == 0 as c_int {
             neighbors[0 as c_int as usize] = -(1 as c_int)
         } else {
             neighbors[0 as c_int as usize] = current - 1 as c_int
         }
         /* Top */
-        neighbors[1 as c_int as usize] = current - (*path_finder).cols;
+        neighbors[1 as c_int as usize] = current - path_finder.cols;
         /* Right */
-        if (current + 1 as c_int) % (*path_finder).cols == 0 as c_int {
+        if (current + 1 as c_int) % path_finder.cols == 0 as c_int {
             neighbors[2 as c_int as usize] = -(1 as c_int)
         } else {
             neighbors[2 as c_int as usize] = current + 1 as c_int
         }
         /* Bottom */
-        neighbors[3 as c_int as usize] = current + (*path_finder).cols;
+        neighbors[3 as c_int as usize] = current + path_finder.cols;
         /* Neighbors */
         tmp_g_score = 0 as c_int;
         j = 0 as c_int;
@@ -226,32 +226,31 @@ pub extern "C" fn path_finder_find_step(mut path_finder: &mut PathFinder, data: 
             n = neighbors[j as usize];
             if n > -(1 as c_int)
                 && n < count
-                && (*path_finder).state[n as usize] as c_int & 0x4 as c_int == 0 as c_int
+                && path_finder.state[n as usize] as c_int & 0x4 as c_int == 0 as c_int
             {
-                if (*path_finder).state[n as usize] as c_int & 0x1 as c_int == 0 as c_int {
-                    (*path_finder).state[n as usize] =
-                        ((*path_finder).state[n as usize] as c_int | 0x4 as c_int) as u8
+                if path_finder.state[n as usize] as c_int & 0x1 as c_int == 0 as c_int {
+                    path_finder.state[n as usize] =
+                        (path_finder.state[n as usize] as c_int | 0x4 as c_int) as u8
                 } else {
-                    tmp_g_score = (*path_finder).g_score[current as usize] + 1 as c_int;
-                    if (*path_finder).state[n as usize] as c_int & 0x2 as c_int == 0 as c_int
-                        || tmp_g_score < (*path_finder).g_score[n as usize]
+                    tmp_g_score = path_finder.g_score[current as usize] + 1 as c_int;
+                    if path_finder.state[n as usize] as c_int & 0x2 as c_int == 0 as c_int
+                        || tmp_g_score < path_finder.g_score[n as usize]
                     {
-                        (*path_finder).parents[n as usize] = current;
-                        (*path_finder).g_score[n as usize] = tmp_g_score;
-                        (*path_finder).f_score[n as usize] =
+                        path_finder.parents[n as usize] = current;
+                        path_finder.g_score[n as usize] = tmp_g_score;
+                        path_finder.f_score[n as usize] =
                             tmp_g_score + path_finder_heuristic(path_finder, n);
-                        if (*path_finder).score_func.is_some() {
-                            (*path_finder).f_score[n as usize] += (*path_finder)
-                                .score_func
-                                .expect("non-null function pointer")(
-                                path_finder,
-                                n / path_finder.cols,
-                                n % path_finder.cols,
-                                data,
-                            )
+                        if path_finder.score_func.is_some() {
+                            path_finder.f_score[n as usize] +=
+                                path_finder.score_func.expect("non-null function pointer")(
+                                    path_finder,
+                                    n / path_finder.cols,
+                                    n % path_finder.cols,
+                                    data,
+                                )
                         }
-                        (*path_finder).state[n as usize] =
-                            ((*path_finder).state[n as usize] as c_int | 0x2 as c_int) as u8
+                        path_finder.state[n as usize] =
+                            (path_finder.state[n as usize] as c_int | 0x2 as c_int) as u8
                     }
                 }
             }
@@ -272,51 +271,51 @@ pub extern "C" fn path_finder_get_heuristic_score(
     col: i32,
     row: i32,
 ) -> i32 {
-    (*path_finder).f_score[(row * (*path_finder).cols + col) as usize]
+    path_finder.f_score[(row * path_finder.cols + col) as usize]
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_passable(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int & 0x1 as c_int
+    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int & 0x1 as c_int
         == 0x1 as c_int) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_closed(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int & 0x4 as c_int
+    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int & 0x4 as c_int
         == 0x4 as c_int) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_open(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int & 0x2 as c_int
+    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int & 0x2 as c_int
         == 0x2 as c_int) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_path(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    ((*path_finder).state[(row * (*path_finder).cols + col) as usize] as c_int & 0x8 as c_int
+    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int & 0x8 as c_int
         == 0x8 as c_int) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_start(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    (row * (*path_finder).cols + col == (*path_finder).start) as c_int as u8
+    (row * path_finder.cols + col == path_finder.start) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_is_end(path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
-    (row * (*path_finder).cols + col == (*path_finder).end) as c_int as u8
+    (row * path_finder.cols + col == path_finder.end) as c_int as u8
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_set_start(mut path_finder: &mut PathFinder, col: i32, row: i32) {
-    (*path_finder).start = row * (*path_finder).cols + col;
+    path_finder.start = row * path_finder.cols + col;
 }
 
 #[no_mangle]
 pub extern "C" fn path_finder_set_end(mut path_finder: &mut PathFinder, col: i32, row: i32) {
-    (*path_finder).end = row * (*path_finder).cols + col;
+    path_finder.end = row * path_finder.cols + col;
 }
 
 #[no_mangle]
@@ -324,15 +323,15 @@ pub extern "C" fn path_finder_clear_path(mut path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
     while i < PATH_FINDER_MAX_CELLS as c_int {
-        (*path_finder).state[i as usize] = ((*path_finder).state[i as usize] as c_int
+        path_finder.state[i as usize] = (path_finder.state[i as usize] as c_int
             & !(0x2 as c_int | 0x4 as c_int | 0x8 as c_int))
             as u8;
-        (*path_finder).parents[i as usize] = 0 as c_int;
-        (*path_finder).g_score[i as usize] = 0 as c_int;
-        (*path_finder).f_score[i as usize] = 0 as c_int;
+        path_finder.parents[i as usize] = 0 as c_int;
+        path_finder.g_score[i as usize] = 0 as c_int;
+        path_finder.f_score[i as usize] = 0 as c_int;
         i += 1
     }
-    (*path_finder).has_path = 0 as c_int as u8;
+    path_finder.has_path = 0 as c_int as u8;
 }
 
 #[no_mangle]
@@ -340,15 +339,15 @@ pub extern "C" fn path_finder_initialize(mut path_finder: &mut PathFinder) {
     let mut i: i32 = 0;
     i = 0 as c_int;
     while i < PATH_FINDER_MAX_CELLS as c_int {
-        (*path_finder).parents[i as usize] = 0 as c_int;
-        (*path_finder).g_score[i as usize] = 0 as c_int;
-        (*path_finder).f_score[i as usize] = 0 as c_int;
-        (*path_finder).state[i as usize] = 0x1 as c_int as u8;
+        path_finder.parents[i as usize] = 0 as c_int;
+        path_finder.g_score[i as usize] = 0 as c_int;
+        path_finder.f_score[i as usize] = 0 as c_int;
+        path_finder.state[i as usize] = 0x1 as c_int as u8;
         i += 1
     }
-    (*path_finder).rows = 0 as c_int;
-    (*path_finder).cols = 0 as c_int;
-    (*path_finder).start = 0 as c_int;
-    (*path_finder).end = 0 as c_int;
-    (*path_finder).has_path = 0 as c_int as u8;
+    path_finder.rows = 0 as c_int;
+    path_finder.cols = 0 as c_int;
+    path_finder.start = 0 as c_int;
+    path_finder.end = 0 as c_int;
+    path_finder.has_path = 0 as c_int as u8;
 }
