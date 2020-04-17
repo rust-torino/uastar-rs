@@ -1,7 +1,7 @@
 #![allow(non_camel_case_types, unused_assignments)]
 
 use std::{
-    convert::TryInto,
+    convert::{TryFrom, TryInto},
     fmt::Debug,
     iter,
     os::raw::{c_int, c_void},
@@ -27,6 +27,143 @@ pub struct PathFinder {
     pub score_func:
         Option<fn(path_finder: &mut PathFinder, col: i32, row: i32, data: *mut c_void) -> i32>,
     pub data: *mut c_void,
+}
+
+impl PathFinder {
+    pub fn cell(&self, col: i32, row: i32) -> CellRef<'_> {
+        CellRef::new(self, self.cell_index(col, row))
+    }
+
+    pub fn cell_index(&self, col: i32, row: i32) -> usize {
+        if col >= self.cols {
+            panic!("col {} is above the limit of cols ({})", col, self.cols);
+        }
+
+        if row >= self.rows {
+            panic!("row {} is above the limit of rows ({})", row, self.rows);
+        }
+
+        usize::try_from(row).unwrap() * usize::try_from(self.cols).unwrap()
+            + usize::try_from(col).unwrap()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CellRef<'a> {
+    pub state: &'a u8,
+    pub parent: &'a i32,
+    pub g_score: &'a i32,
+    pub f_score: &'a i32,
+}
+
+impl<'a> CellRef<'a> {
+    pub fn new(path_finder: &'a PathFinder, index: usize) -> Self {
+        let PathFinder {
+            state,
+            parents,
+            g_score,
+            f_score,
+            ..
+        } = path_finder;
+
+        let state = &state[index];
+        let parent = &parents[index];
+        let g_score = &g_score[index];
+        let f_score = &f_score[index];
+
+        Self {
+            state,
+            parent,
+            g_score,
+            f_score,
+        }
+    }
+
+    pub fn to_cell(&self) -> Cell {
+        let state = *self.state;
+        let parent = *self.parent;
+        let g_score = *self.g_score;
+        let f_score = *self.f_score;
+
+        Cell {
+            state,
+            parent,
+            g_score,
+            f_score,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct CellMut<'a> {
+    pub state: &'a mut u8,
+    pub parent: &'a mut i32,
+    pub g_score: &'a mut i32,
+    pub f_score: &'a mut i32,
+}
+
+impl<'a> CellMut<'a> {
+    pub fn new(path_finder: &'a mut PathFinder, index: usize) -> Self {
+        let PathFinder {
+            state,
+            parents,
+            g_score,
+            f_score,
+            ..
+        } = path_finder;
+
+        let state = &mut state[index];
+        let parent = &mut parents[index];
+        let g_score = &mut g_score[index];
+        let f_score = &mut f_score[index];
+
+        Self {
+            state,
+            parent,
+            g_score,
+            f_score,
+        }
+    }
+
+    pub fn to_cell(&self) -> Cell {
+        let state = *self.state;
+        let parent = *self.parent;
+        let g_score = *self.g_score;
+        let f_score = *self.f_score;
+
+        Cell {
+            state,
+            parent,
+            g_score,
+            f_score,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Cell {
+    pub state: u8,
+    pub parent: i32,
+    pub g_score: i32,
+    pub f_score: i32,
+}
+
+impl PartialEq<Cell> for CellRef<'_> {
+    fn eq(&self, other: &Cell) -> bool {
+        (*self.state).eq(&other.state)
+            && (*self.parent).eq(&other.parent)
+            && (*self.g_score).eq(&other.g_score)
+            && (*self.f_score).eq(&other.f_score)
+    }
+}
+
+impl<'a> PartialEq<Cell> for CellMut<'a> {
+    fn eq(&self, other: &Cell) -> bool {
+        (*self.state).eq(&other.state)
+            && (*self.parent).eq(&other.parent)
+            && (*self.g_score).eq(&other.g_score)
+            && (*self.f_score).eq(&other.f_score)
+    }
 }
 
 impl Debug for PathFinder {
