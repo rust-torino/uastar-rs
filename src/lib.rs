@@ -406,4 +406,57 @@ mod tests {
         path_finder.f_score[11] = -10;
         assert_eq!(path_finder_lowest_in_open_set(&path_finder), 11);
     }
+
+    #[test]
+    fn reconstruct_path() {
+        /*
+         * Representation
+         *
+         * /-----\
+         * | >>>v|
+         * | S v<|
+         * |v<<< |
+         * |>>>E |
+         * \-----/
+         */
+
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            start: 6,
+            end: 18,
+            ..Default::default()
+        };
+
+        let parents = &mut path_finder.parents;
+        parents[18] = 17;
+        parents[17] = 16;
+        parents[16] = 15;
+        parents[15] = 10;
+        parents[10] = 11;
+        parents[11] = 12;
+        parents[12] = 13;
+        parents[13] = 8;
+        parents[8] = 9;
+        parents[9] = 4;
+        parents[4] = 3;
+        parents[3] = 2;
+        parents[2] = 1;
+        parents[1] = 6;
+
+        path_finder_reconstruct_path(&mut path_finder);
+        path_finder
+            .parents
+            .iter()
+            .copied()
+            .zip(path_finder.state.iter().copied())
+            .enumerate()
+            .for_each(|(index, (parent_index, state))| {
+                if parent_index == 0 || index as i32 == path_finder.end {
+                    assert_eq!(state, 0);
+                } else {
+                    assert_eq!(state, 0x8);
+                }
+            });
+    }
 }
