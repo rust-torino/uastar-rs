@@ -176,8 +176,7 @@ pub extern "C" fn path_finder_fill(path_finder: &mut PathFinder) {
 
 #[no_mangle]
 pub extern "C" fn path_finder_begin(path_finder: &mut PathFinder) {
-    path_finder.state[path_finder.start as usize] =
-        (path_finder.state[path_finder.start as usize] as c_int | 0x2 as c_int) as u8;
+    path_finder.state[path_finder.start as usize] |= 0x2;
 }
 
 #[no_mangle]
