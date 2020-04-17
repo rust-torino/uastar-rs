@@ -157,30 +157,20 @@ extern "C" fn path_finder_reconstruct_path(path_finder: &mut PathFinder) {
 
 #[no_mangle]
 pub extern "C" fn path_finder_fill(path_finder: &mut PathFinder) {
-    let mut row: i32 = 0;
-    row = 0 as c_int;
-    while row < path_finder.rows {
-        let mut col: i32 = 0;
-        col = 0 as c_int;
-        while col < path_finder.cols {
-            if path_finder.fill_func.expect("non-null function pointer")(
-                &mut *path_finder,
-                col,
-                row,
-            ) as c_int
-                == 1 as c_int
-            {
-                path_finder.state[(row * path_finder.cols + col) as usize] =
-                    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int
-                        | 0x1 as c_int) as u8
+    let fill_func = path_finder.fill_func.expect("non-null function pointer");
+    let size: usize = (path_finder.rows * path_finder.cols).try_into().unwrap();
+
+    let mut index_iter = 0..size.min(path_finder.state.len());
+    for row in 0..path_finder.rows {
+        for col in 0..path_finder.cols {
+            let index = index_iter.next().unwrap();
+
+            if fill_func(path_finder, col, row) == 0 {
+                path_finder.state[index] &= !0x1;
             } else {
-                path_finder.state[(row * path_finder.cols + col) as usize] =
-                    (path_finder.state[(row * path_finder.cols + col) as usize] as c_int
-                        & !(0x1 as c_int)) as u8
+                path_finder.state[index] |= 0x1;
             }
-            col += 1
         }
-        row += 1
     }
 }
 
