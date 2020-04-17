@@ -508,4 +508,57 @@ mod tests {
             .chain(path_finder.state.iter().copied().skip(14))
             .for_each(|state| assert_eq!(state, 0));
     }
+
+    #[test]
+    fn find_step_at_end() {
+        /*
+         * Representation
+         *
+         * /-----\
+         * |     |
+         * | S   |
+         * | v   |
+         * | >>E |
+         * \-----/
+         */
+
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            start: 6,
+            end: 18,
+            ..Default::default()
+        };
+
+        const PATH_INDICES: [usize; 4] = [11, 16, 17, 18];
+        let parents = &mut path_finder.parents;
+        parents[11] = 6;
+        parents[16] = 11;
+        parents[17] = 16;
+        parents[18] = 17;
+
+        PATH_INDICES
+            .iter()
+            .for_each(|&index| path_finder.state[index] = 0x2);
+        path_finder.f_score[18] = -10;
+
+        let run = path_finder_find_step(&mut path_finder, null_mut());
+        assert_eq!(run, 0);
+        assert_eq!(path_finder.has_path, 1);
+        path_finder
+            .state
+            .iter()
+            .take((path_finder.cols * path_finder.rows).try_into().unwrap())
+            .copied()
+            .enumerate()
+            .for_each(|(index, state)| {
+                if path_finder.end == index.try_into().unwrap() {
+                    assert_eq!(state, 0x2);
+                } else if PATH_INDICES.binary_search(&index).is_ok() {
+                    assert_eq!(state, 0xa);
+                } else {
+                    assert_eq!(state, 0);
+                }
+            });
+    }
 }
