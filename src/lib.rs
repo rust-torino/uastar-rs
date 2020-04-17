@@ -462,4 +462,43 @@ mod tests {
                 }
             });
     }
+
+    #[test]
+    fn fill() {
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            ..Default::default()
+        };
+        const IMPASSABLES: [usize; 6] = [1, 2, 3, 5, 8, 13];
+        let fill_func = |path_finder: &mut PathFinder, col: i32, row: i32| -> u8 {
+            let index = (row * path_finder.cols + col).try_into().unwrap();
+            IMPASSABLES.binary_search(&index).is_err() as u8
+        };
+        path_finder.fill_func = Some(fill_func);
+
+        let size = path_finder.cols * path_finder.rows;
+        let test_states = move |path_finder: &PathFinder| {
+            path_finder
+                .state
+                .iter()
+                .take(size as usize)
+                .copied()
+                .enumerate()
+                .for_each(|(index, state)| {
+                    if IMPASSABLES.binary_search(&index).is_err() {
+                        assert_eq!(state, 0x1);
+                    } else {
+                        assert_eq!(state, 0);
+                    }
+                })
+        };
+
+        path_finder_fill(&mut path_finder);
+        test_states(&path_finder);
+
+        path_finder.state.iter_mut().for_each(|state| *state = 0x1);
+        path_finder_fill(&mut path_finder);
+        test_states(&path_finder);
+    }
 }
