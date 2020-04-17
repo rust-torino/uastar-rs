@@ -491,4 +491,22 @@ mod tests {
         path_finder_fill(&mut path_finder);
         test_states(&path_finder);
     }
+
+    #[test]
+    fn begin() {
+        let mut path_finder = PathFinder {
+            start: 13,
+            ..Default::default()
+        };
+
+        path_finder_begin(&mut path_finder);
+        assert_eq!(path_finder.state[13], 0x2);
+        path_finder
+            .state
+            .iter()
+            .copied()
+            .take(13)
+            .chain(path_finder.state.iter().copied().skip(14))
+            .for_each(|state| assert_eq!(state, 0));
+    }
 }
