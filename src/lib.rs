@@ -561,4 +561,21 @@ mod tests {
                 }
             });
     }
+
+    #[test]
+    fn find_step_empty_set() {
+        let mut path_finder = PathFinder {
+            cols: 5,
+            rows: 4,
+            start: 6,
+            end: 18,
+            ..Default::default()
+        };
+        path_finder.f_score[18] = -10;
+
+        let run = path_finder_find_step(&mut path_finder, null_mut());
+        assert_eq!(run, 0);
+        assert_eq!(path_finder.has_path, 0);
+        assert!(path_finder.state.iter().copied().all(|state| state == 0));
+    }
 }
