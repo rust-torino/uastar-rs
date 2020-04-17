@@ -3,6 +3,7 @@
 use std::{
     convert::TryInto,
     fmt::Debug,
+    iter,
     os::raw::{c_int, c_void},
     ptr::null_mut,
 };
@@ -140,16 +141,18 @@ extern "C" fn path_finder_lowest_in_open_set(path_finder: &PathFinder) -> i32 {
 }
 
 extern "C" fn path_finder_reconstruct_path(path_finder: &mut PathFinder) {
-    let mut i: i32 = 0;
-    i = path_finder.end;
-    while i != path_finder.start {
-        if path_finder.parents[i as usize] != path_finder.start {
-            path_finder.state[path_finder.parents[i as usize] as usize] =
-                (path_finder.state[path_finder.parents[i as usize] as usize] as c_int
-                    | 0x8 as c_int) as u8
-        }
-        i = path_finder.parents[i as usize]
-    }
+    let &mut PathFinder {
+        start,
+        end,
+        ref parents,
+        ref mut state,
+        ..
+    } = path_finder;
+
+    iter::successors(Some(end), |&index| Some(parents[index as usize]))
+        .take_while(|&index| index != start)
+        .skip(1)
+        .for_each(|index| state[index as usize] |= 0x8);
 }
 
 #[no_mangle]
