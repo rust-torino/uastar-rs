@@ -41,6 +41,13 @@ impl PathFinder {
         CellRef::new(self, cell_index)
     }
 
+    pub fn get_mut(&mut self, cell_index: usize) -> CellMut<'_> {
+        if cell_index >= self.size() {
+            panic!("cell index out of bounds");
+        }
+        CellMut::new(self, cell_index)
+    }
+
     pub fn col_and_row_from_index(&self, cell_index: usize) -> [i32; 2] {
         if cell_index >= self.size() {
             panic!("cell index out of bounds");
@@ -341,84 +348,83 @@ pub extern "C" fn path_finder_begin(path_finder: &mut PathFinder) {
 
 #[no_mangle]
 pub extern "C" fn path_finder_find_step(path_finder: &mut PathFinder, data: *mut c_void) -> u8 {
-    let mut run: u8 = 0;
-    let mut current: i32 = 0;
-    let mut count: i32 = 0;
-    run = 1 as c_int as u8;
-    current = 0 as c_int;
-    count = path_finder.cols * path_finder.rows;
-    current = path_finder_lowest_in_open_set(path_finder);
+    let count = path_finder.size();
+    let current = path_finder_lowest_in_open_set(path_finder);
+
     if current == path_finder.end {
         path_finder_reconstruct_path(path_finder);
-        run = 0 as c_int as u8;
-        path_finder.has_path = 1 as c_int as u8
-    } else if path_finder_open_set_is_empty(path_finder) as c_int == 1 as c_int {
-        run = 0 as c_int as u8;
-        path_finder.has_path = 0 as c_int as u8
+        path_finder.has_path = 1;
+        0
+    } else if path_finder_open_set_is_empty(path_finder) == 1 {
+        path_finder.has_path = 0;
+        0
     } else {
-        let mut neighbors: [i32; 4] = [0; 4];
-        let mut j: i32 = 0;
-        let mut tmp_g_score: i32 = 0;
-        path_finder.state[current as usize] =
-            (path_finder.state[current as usize] as c_int & !(0x2 as c_int)) as u8;
-        path_finder.state[current as usize] =
-            (path_finder.state[current as usize] as c_int | 0x4 as c_int) as u8;
-        /* Left */
-        if current % path_finder.cols == 0 as c_int {
-            neighbors[0 as c_int as usize] = -(1 as c_int)
-        } else {
-            neighbors[0 as c_int as usize] = current - 1 as c_int
-        }
-        /* Top */
-        neighbors[1 as c_int as usize] = current - path_finder.cols;
-        /* Right */
-        if (current + 1 as c_int) % path_finder.cols == 0 as c_int {
-            neighbors[2 as c_int as usize] = -(1 as c_int)
-        } else {
-            neighbors[2 as c_int as usize] = current + 1 as c_int
-        }
-        /* Bottom */
-        neighbors[3 as c_int as usize] = current + path_finder.cols;
-        /* Neighbors */
-        tmp_g_score = 0 as c_int;
-        j = 0 as c_int;
-        while j < 4 as c_int {
-            let mut n: i32 = 0;
-            n = neighbors[j as usize];
-            if n > -(1 as c_int)
-                && n < count
-                && path_finder.state[n as usize] as c_int & 0x4 as c_int == 0 as c_int
-            {
-                if path_finder.state[n as usize] as c_int & 0x1 as c_int == 0 as c_int {
-                    path_finder.state[n as usize] =
-                        (path_finder.state[n as usize] as c_int | 0x4 as c_int) as u8
-                } else {
-                    tmp_g_score = path_finder.g_score[current as usize] + 1 as c_int;
-                    if path_finder.state[n as usize] as c_int & 0x2 as c_int == 0 as c_int
-                        || tmp_g_score < path_finder.g_score[n as usize]
-                    {
-                        path_finder.parents[n as usize] = current;
-                        path_finder.g_score[n as usize] = tmp_g_score;
-                        path_finder.f_score[n as usize] =
-                            tmp_g_score + path_finder_heuristic(path_finder, n);
-                        if path_finder.score_func.is_some() {
-                            path_finder.f_score[n as usize] +=
-                                path_finder.score_func.expect("non-null function pointer")(
+        let current_index: usize = current.try_into().unwrap();
+
+        path_finder.state[current_index] = (path_finder.state[current_index] & !0x2) | 0x4;
+
+        let neighbors = {
+            let left = if current % path_finder.cols == 0 {
+                -1
+            } else {
+                current - 1
+            };
+            let top = current - path_finder.cols;
+            let right = if (current + 1) % path_finder.cols == 0 {
+                -1
+            } else {
+                current + 1
+            };
+            let bottom = current + path_finder.cols;
+
+            [left, top, right, bottom]
+        };
+
+        let cols: usize = path_finder.cols.try_into().unwrap();
+        let g_score = path_finder.g_score[current_index] + 1;
+        let score_func = path_finder.score_func;
+
+        neighbors
+            .iter()
+            .filter_map(|&n| usize::try_from(n).ok())
+            .filter(|&n| n < count)
+            .for_each(|n| {
+                let cell = path_finder.get_mut(n);
+                if *cell.state & 0x4 == 0 {
+                    if *cell.state & 0x1 == 0 {
+                        *cell.state |= 0x4;
+                    } else if *cell.state & 0x2 == 0 || g_score < *cell.g_score {
+                        *cell.parent = current;
+                        *cell.g_score = g_score;
+                        let heuristics = path_finder_heuristic(path_finder, n.try_into().unwrap());
+
+                        let cell = path_finder.get_mut(n);
+                        *cell.f_score = g_score + heuristics;
+
+                        let cell = match score_func {
+                            Some(score_func) => {
+                                let score = score_func(
                                     path_finder,
-                                    n % path_finder.cols,
-                                    n / path_finder.cols,
+                                    (n % cols).try_into().unwrap(),
+                                    (n / cols).try_into().unwrap(),
                                     data,
-                                )
-                        }
-                        path_finder.state[n as usize] =
-                            (path_finder.state[n as usize] as c_int | 0x2 as c_int) as u8
+                                );
+
+                                let cell = path_finder.get_mut(n);
+                                *cell.f_score += score;
+
+                                cell
+                            }
+                            None => cell,
+                        };
+
+                        *cell.state |= 0x2;
                     }
                 }
-            }
-            j += 1
-        }
+            });
+
+        1
     }
-    run
 }
 #[no_mangle]
 pub extern "C" fn path_finder_find(path_finder: &mut PathFinder, data: *mut c_void) {
