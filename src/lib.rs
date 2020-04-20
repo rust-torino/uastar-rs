@@ -34,6 +34,25 @@ impl PathFinder {
         CellRef::new(self, self.cell_index(col, row))
     }
 
+    pub fn get(&self, cell_index: usize) -> CellRef<'_> {
+        if cell_index >= self.size() {
+            panic!("cell index out of bounds");
+        }
+        CellRef::new(self, cell_index)
+    }
+
+    pub fn col_and_row_from_index(&self, cell_index: usize) -> [i32; 2] {
+        if cell_index >= self.size() {
+            panic!("cell index out of bounds");
+        }
+
+        let cols: usize = self.cols.try_into().unwrap();
+        let col = cell_index % cols;
+        let row = cell_index / cols;
+
+        [col.try_into().unwrap(), row.try_into().unwrap()]
+    }
+
     pub fn cell_index(&self, col: i32, row: i32) -> usize {
         if col >= self.cols {
             panic!("col {} is above the limit of cols ({})", col, self.cols);
@@ -45,6 +64,10 @@ impl PathFinder {
 
         usize::try_from(row).unwrap() * usize::try_from(self.cols).unwrap()
             + usize::try_from(col).unwrap()
+    }
+
+    pub fn size(&self) -> usize {
+        usize::try_from(self.cols).unwrap() * usize::try_from(self.cols).unwrap()
     }
 }
 
@@ -714,5 +737,298 @@ mod tests {
         assert_eq!(run, 0);
         assert_eq!(path_finder.has_path, 0);
         assert!(path_finder.state.iter().copied().all(|state| state == 0));
+    }
+
+    #[test]
+    fn find_step() {
+        let mut path_finder = create_complex_map();
+        path_finder_fill(&mut path_finder);
+        path_finder_begin(&mut path_finder);
+
+        check_next_step(&mut path_finder);
+        assert_eq!(
+            path_finder.cell(6, 5),
+            Cell {
+                state: 5,
+                ..Default::default()
+            }
+        );
+
+        for _step in 0..312 {
+            assert!(check_next_step(&mut path_finder));
+        }
+
+        assert!(!check_next_step(&mut path_finder));
+    }
+
+    fn check_next_step(path_finder: &mut PathFinder) -> bool {
+        let current_cell_index = path_finder_lowest_in_open_set(path_finder);
+        let current_cell = path_finder
+            .get(current_cell_index.try_into().unwrap())
+            .to_cell();
+        let [col, row] = path_finder.col_and_row_from_index(current_cell_index.try_into().unwrap());
+        let g_score = current_cell.g_score + 1;
+        let score_func = path_finder.score_func.unwrap();
+
+        const OFFSETS: [[i32; 2]; 4] = [[-1, 0], [0, 1], [1, 0], [0, -1]];
+        let mut old_cells = [
+            Cell::default(),
+            Cell::default(),
+            Cell::default(),
+            Cell::default(),
+        ];
+
+        OFFSETS
+            .iter()
+            .zip(old_cells.iter_mut())
+            .for_each(|(&[x, y], old_cell)| {
+                let col = match col.checked_add(x) {
+                    Some(col) if col >= 0 && col < path_finder.cols => col,
+                    _ => return,
+                };
+
+                let row = match row.checked_add(y) {
+                    Some(row) if row >= 0 && row < path_finder.rows => row,
+                    _ => return,
+                };
+
+                *old_cell = path_finder.cell(col, row).to_cell();
+            });
+
+        if path_finder_find_step(path_finder, null_mut()) != 1 {
+            return false;
+        }
+
+        OFFSETS
+            .iter()
+            .zip(old_cells.iter())
+            .for_each(|(&[x, y], old_cell)| {
+                let col = match col.checked_add(x) {
+                    Some(col) if col >= 0 && col < path_finder.cols => col,
+                    _ => return,
+                };
+
+                let row = match row.checked_add(y) {
+                    Some(row) if row >= 0 && row < path_finder.rows => row,
+                    _ => return,
+                };
+
+                let cell = path_finder.cell(col, row);
+                if *cell.parent != current_cell_index {
+                    return;
+                }
+
+                if old_cell.state & 0x1 == 0 {
+                    assert_eq!(
+                        path_finder.cell(col, row),
+                        Cell {
+                            state: old_cell.state | 0x4,
+                            parent: old_cell.parent,
+                            g_score: old_cell.g_score,
+                            f_score: old_cell.f_score,
+                        }
+                    );
+                } else {
+                    let (g_score, f_score) =
+                        if old_cell.state & 0x2 == 0 || g_score < old_cell.g_score {
+                            let heuristics = path_finder_heuristic(
+                                path_finder,
+                                path_finder.cell_index(col, row).try_into().unwrap(),
+                            );
+                            let score = score_func(path_finder, row, col, null_mut());
+                            let f_score = score + heuristics + g_score;
+
+                            (g_score, f_score)
+                        } else {
+                            (old_cell.g_score, old_cell.f_score)
+                        };
+
+                    assert_eq!(
+                        path_finder.cell(col, row),
+                        Cell {
+                            state: 3,
+                            parent: current_cell_index,
+                            g_score,
+                            f_score,
+                        }
+                    );
+                }
+            });
+
+        true
+    }
+
+    fn create_complex_map() -> PathFinder {
+        /*
+         * Representation
+         *              1         2
+         *    0123456789012345678901234
+         *   /-------------------------\
+         *  0|                         |
+         *  1|     fffff               |
+         *  2|     fffff               |
+         *  3|        #                |
+         *  4|        #  ffffff        |
+         *  5|      S #  ffffff        |
+         *  6|        #                |
+         *  7|##############           |
+         *  8|          11111          |
+         *  9|          f##############|
+         * 10|          f      #       |
+         *  1|              #81#  E    |
+         *  2|              #  #       |
+         *  3|              #18######1 |
+         *  4|              #          |
+         *  5|              #          |
+         *   \-------------------------/
+         */
+
+        PathFinder {
+            cols: 25,
+            rows: 16,
+            start: 131,
+            end: 295,
+            fill_func: Some(create_complex_map_fill_func),
+            score_func: Some(create_complex_map_score_func),
+            ..Default::default()
+        }
+    }
+
+    struct Pos {
+        row: i32,
+        col: i32,
+    }
+
+    struct Area {
+        first: Pos,
+        last: Pos,
+    }
+
+    fn create_complex_map_fill_func(_path_finder: &mut PathFinder, col: i32, row: i32) -> u8 {
+        const WALLS: [Area; 6] = [
+            Area {
+                first: Pos { row: 3, col: 8 },
+                last: Pos { row: 6, col: 8 },
+            },
+            Area {
+                first: Pos { row: 7, col: 0 },
+                last: Pos { row: 7, col: 13 },
+            },
+            Area {
+                first: Pos { row: 9, col: 11 },
+                last: Pos { row: 9, col: 24 },
+            },
+            Area {
+                first: Pos { row: 11, col: 14 },
+                last: Pos { row: 15, col: 14 },
+            },
+            Area {
+                first: Pos { row: 10, col: 17 },
+                last: Pos { row: 13, col: 17 },
+            },
+            Area {
+                first: Pos { row: 13, col: 18 },
+                last: Pos { row: 13, col: 22 },
+            },
+        ];
+
+        WALLS
+            .iter()
+            .find(|wall| {
+                wall.first.row <= row
+                    && wall.first.col <= col
+                    && wall.last.row >= row
+                    && wall.last.col >= col
+            })
+            .is_none() as u8
+    }
+
+    fn create_complex_map_score_func(
+        _path_finder: &mut PathFinder,
+        row: i32,
+        col: i32,
+        _data: *mut c_void,
+    ) -> i32 {
+        struct Danger {
+            area: Area,
+            score: i32,
+        }
+
+        const DANGERS: [Danger; 9] = [
+            Danger {
+                area: Area {
+                    first: Pos { row: 1, col: 4 },
+                    last: Pos { row: 2, col: 9 },
+                },
+                score: 0xf,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 4, col: 11 },
+                    last: Pos { row: 5, col: 16 },
+                },
+                score: 0xf,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 8, col: 10 },
+                    last: Pos { row: 8, col: 14 },
+                },
+                score: 1,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 9, col: 10 },
+                    last: Pos { row: 10, col: 10 },
+                },
+                score: 0xf,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 11, col: 15 },
+                    last: Pos { row: 11, col: 15 },
+                },
+                score: 8,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 11, col: 16 },
+                    last: Pos { row: 11, col: 16 },
+                },
+                score: 1,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 13, col: 15 },
+                    last: Pos { row: 13, col: 15 },
+                },
+                score: 1,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 13, col: 16 },
+                    last: Pos { row: 13, col: 16 },
+                },
+                score: 8,
+            },
+            Danger {
+                area: Area {
+                    first: Pos { row: 13, col: 13 },
+                    last: Pos { row: 13, col: 13 },
+                },
+                score: 1,
+            },
+        ];
+
+        DANGERS
+            .iter()
+            .find(|danger| {
+                danger.area.first.row <= row
+                    && danger.area.first.col <= col
+                    && danger.area.last.row >= row
+                    && danger.area.last.col >= col
+            })
+            .map(|danger| danger.score)
+            .unwrap_or(0)
     }
 }
