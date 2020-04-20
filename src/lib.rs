@@ -25,7 +25,7 @@ pub struct PathFinder {
     pub fill_func: Option<fn(path_finder: &mut PathFinder, col: i32, row: i32) -> u8>,
     #[allow(clippy::type_complexity)]
     pub score_func:
-        Option<fn(path_finder: &mut PathFinder, col: i32, row: i32, data: *mut c_void) -> i32>,
+        Option<fn(path_finder: &mut PathFinder, row: i32, col: i32, data: *mut c_void) -> i32>,
     pub data: *mut c_void,
 }
 
