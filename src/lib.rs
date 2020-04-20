@@ -25,7 +25,7 @@ pub struct PathFinder {
     pub fill_func: Option<fn(path_finder: &mut PathFinder, col: i32, row: i32) -> u8>,
     #[allow(clippy::type_complexity)]
     pub score_func:
-        Option<fn(path_finder: &mut PathFinder, row: i32, col: i32, data: *mut c_void) -> i32>,
+        Option<fn(path_finder: &mut PathFinder, col: i32, row: i32, data: *mut c_void) -> i32>,
     pub data: *mut c_void,
 }
 
@@ -405,8 +405,8 @@ pub extern "C" fn path_finder_find_step(path_finder: &mut PathFinder, data: *mut
                             path_finder.f_score[n as usize] +=
                                 path_finder.score_func.expect("non-null function pointer")(
                                     path_finder,
-                                    n / path_finder.cols,
                                     n % path_finder.cols,
+                                    n / path_finder.cols,
                                     data,
                                 )
                         }
@@ -835,7 +835,7 @@ mod tests {
                                 path_finder,
                                 path_finder.cell_index(col, row).try_into().unwrap(),
                             );
-                            let score = score_func(path_finder, row, col, null_mut());
+                            let score = score_func(path_finder, col, row, null_mut());
                             let f_score = score + heuristics + g_score;
 
                             (g_score, f_score)
@@ -945,8 +945,8 @@ mod tests {
 
     fn create_complex_map_score_func(
         _path_finder: &mut PathFinder,
-        row: i32,
         col: i32,
+        row: i32,
         _data: *mut c_void,
     ) -> i32 {
         struct Danger {
