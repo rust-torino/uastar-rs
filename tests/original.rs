@@ -98,7 +98,7 @@ fn find_path(
         } else {
             path_finder_begin(&mut path_finder);
             while path_finder_find_step(&mut path_finder, null_mut()) == 1 {
-                sleep(Duration::from_micros(25000))
+                sleep(Duration::from_millis(25))
             }
         }
     }
